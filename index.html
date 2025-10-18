@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANUBIS - Official Portal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="eye"></div>
+
+  <section id="welcome" class="step active">
+    <h1 class="logo">👁️ ANUBIS</h1>
+    <p class="subtitle">مرحباً بك في عالم أنوبيس</p>
+    <button onclick="nextStep('lang')">ابدأ الآن</button>
+  </section>
+
+  <section id="lang" class="step">
+    <h2>اختر اللغة</h2>
+    <div class="lang-buttons">
+      <button onclick="setLang('ar')">العربية</button>
+      <button onclick="setLang('en')">English</button>
+      <button onclick="setLang('fr')">Français</button>
+    </div>
+  </section>
+
+  <section id="channel" class="step">
+    <h2>🎯 اختر خيارك</h2>
+    <button onclick="window.open('https://t.me/anubis_4', '_blank')">📢 القناة الرسمية</button>
+    <button onclick="nextStep('country')">💳 شراء مفتاح</button>
+  </section>
+
+  <section id="country" class="step">
+    <h2>🌍 اختر دولتك</h2>
+    <div id="countries" class="grid"></div>
+    <button onclick="restart()">🔙 رجوع للبداية</button>
+  </section>
+
+  <section id="sellers" class="step">
+    <h2 id="countryName"></h2>
+    <div id="sellerList" class="seller-list"></div>
+    <button onclick="restart()">🔙 رجوع للبداية</button>
+  </section>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>لوحة الإدارة - ANUBIS</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background: #0f0f0f;
+      color: #eee;
+      font-family: "Cairo", sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    .hidden { display: none; }
+
+    .admin-container {
+      max-width: 900px;
+      margin: auto;
+      background: #1a1a1a;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 0 25px rgba(0,0,0,0.5);
+    }
+
+    input, textarea {
+      width: 90%;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px;
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    button {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 3px;
+      transition: 0.2s;
+    }
+    button:hover { background: #444; }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 15px;
+      color: #f5b301;
+    }
+
+    .seller-table {
+      margin-top: 25px;
+      border-top: 1px solid #333;
+    }
+
+    .seller-row {
+      background: #181818;
+      border-bottom: 1px solid #222;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 8px;
+      margin: 5px 0;
+    }
+
+    .seller-row span {
+      text-align: left;
+      font-size: 14px;
+    }
+
+    .verified {
+      color: #33cc66;
+      font-weight: bold;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    #searchSeller {
+      width: 250px;
+      padding: 8px;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+    }
+
+    .card {
+      background: #191919;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 10px 0;
+      box-shadow: 0 0 10px rgba(255,255,255,0.05);
+    }
+
+    label {
+      color: #aaa;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚙️ لوحة إدارة ANUBIS</h1>
+
+  <!-- شاشة تسجيل الدخول -->
+  <div id="loginScreen" class="admin-container">
+    <p>يرجى إدخال كلمة المرور للوصول إلى لوحة التحكم</p>
+    <input type="password" id="adminPass" placeholder="كلمة المرور">
+    <br>
+    <button onclick="loginAdmin()">دخول</button>
+  </div>
+
+  <!-- لوحة الإدارة -->
+  <div id="adminPanel" class="hidden admin-container">
+
+    <div class="top-bar">
+      <input type="text" id="searchSeller" placeholder="🔍 بحث عن بائع أو دولة..." oninput="searchSellers()">
+      <button onclick="clearAll()">🗑️ حذف كل البيانات</button>
+    </div>
+
+    <div class="card">
+      <h3>➕ إضافة بائع جديد</h3>
+      <label>الدولة:</label><br>
+      <input id="countryName" placeholder="اسم الدولة"><br>
+      <label>اسم البائع:</label><br>
+      <input id="sellerName" placeholder="اسم البائع"><br>
+      <label>الوصف:</label><br>
+      <textarea id="sellerDesc" placeholder="وصف البائع"></textarea><br>
+      <label>رابط تيليجرام:</label><br>
+      <input id="telegram" placeholder="https://t.me/username"><br>
+      <label>رابط واتساب:</label><br>
+      <input id="whatsapp" placeholder="https://wa.me/number"><br>
+      <label><input type="checkbox" id="verified"> بائع موثّق ✅</label><br>
+      <button onclick="addSeller()">إضافة البائع</button>
+    </div>
+
+    <div class="card seller-table">
+      <h3>📋 قائمة البائعين</h3>
+      <div id="sellersTable"></div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+  <script>
+    function searchSellers() {
+      const term = document.getElementById("searchSeller").value.toLowerCase();
+      const rows = document.querySelectorAll(".seller-row");
+      rows.forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(term) ? "flex" : "none";
+      });
+    }
+
+    // تعديل البائع
+    function editSeller(country, index) {
+      const data = JSON.parse(localStorage.getItem("sellersData") || "{}");
+      const s = data[country][index];
+      const newName = prompt("اسم البائع:", s.name) || s.name;
+      const newDesc = prompt("الوصف:", s.desc || "") || s.desc;
+      const newTG = prompt("رابط تيليجرام:", s.telegram || "") || s.telegram;
+      const newWA = prompt("رابط واتساب:", s.whatsapp || "") || s.whatsapp;
+      const verified = confirm("هل تريد جعله بائع موثّق؟");
+
+      data[country][index] = { ...s, name: newName, desc: newDesc, telegram: newTG, whatsapp: newWA, verified };
+      localStorage.setItem("sellersData", JSON.stringify(data));
+      renderAdminTable();
+      alert("تم تعديل بيانات البائع ✅");
+    }
+
+    // نضيف زر تعديل
+    const oldRender = renderAdminTable;
+    renderAdminTable = function() {
+      const data = loadData();
+      const table = document.getElementById("sellersTable");
+      table.innerHTML = "";
+      Object.entries(data).forEach(([country, sellers]) => {
+        sellers.forEach((s, i) => {
+          const avg = s.rates ? (s.total / s.rates).toFixed(1) : "0.0";
+          const row = document.createElement("div");
+          row.className = "seller-row";
+          row.innerHTML = `
+            <span><strong>${country}</strong> - ${s.name} ${s.verified ? "✅" : ""}<br>
+            ⭐ ${avg}/5 | 📛 شكاوى: ${s.complaints || 0}</span>
+            <div>
+              <button onclick="editSeller('${country}',${i})">✏️ تعديل</button>
+              <button onclick="deleteSeller('${country}',${i})">❌ حذف</button>
+            </div>
+          `;
+          table.appendChild(row);
+        });
+      });
+    };
+  </script>
+</body>
+</html>

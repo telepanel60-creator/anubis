@@ -4,16 +4,6 @@
   <meta charset="UTF-8" />
   <title>لوحة الإدارة - ANUBIS</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    /* نفس الستايل السابق مع بعض التعديلات */
-    body { background: #0f0f0f; color: #eee; font-family: "Cairo", sans-serif; padding: 20px; text-align: center; }
-    .admin-container { max-width: 900px; margin: auto; background: #1a1a1a; padding: 20px; border-radius: 15px; box-shadow: 0 0 25px rgba(0,0,0,0.5); }
-    input, textarea { width: 90%; background: #222; color: #fff; border: 1px solid #333; border-radius: 8px; padding: 8px; margin: 5px 0; font-size: 14px; }
-    button { background: #333; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; margin: 3px; transition: 0.2s; }
-    button:hover { background: #444; }
-    h1 { font-size: 24px; margin-bottom: 15px; color: #f5b301; }
-    .card { background: #191919; padding: 20px; border-radius: 12px; margin: 10px 0; box-shadow: 0 0 10px rgba(255,255,255,0.05); }
-  </style>
 </head>
 <body>
   <h1>⚙️ لوحة إدارة ANUBIS</h1>
@@ -26,139 +16,149 @@
   </div>
 
   <div id="adminPanel" class="hidden admin-container">
+    <h3>إدارة المحتوى</h3>
+
     <div class="card">
-      <h3>➕ إضافة بائع جديد</h3>
-      <label>الدولة:</label><br>
-      <input id="countryName" placeholder="اسم الدولة"><br>
-      <label>اسم البائع:</label><br>
+      <h4>➕ إضافة بائع جديد</h4>
+      <input id="countryName" placeholder="الدولة"><br>
       <input id="sellerName" placeholder="اسم البائع"><br>
-      <label>الوصف:</label><br>
-      <textarea id="sellerDesc" placeholder="وصف البائع"></textarea><br>
-      <label>رابط تيليجرام:</label><br>
-      <input id="telegram" placeholder="https://t.me/username"><br>
-      <label>رابط واتساب:</label><br>
-      <input id="whatsapp" placeholder="https://wa.me/number"><br>
+      <textarea id="sellerDesc" placeholder="الوصف"></textarea><br>
+      <input id="telegram" placeholder="رابط تيليجرام"><br>
+      <input id="whatsapp" placeholder="رابط واتساب"><br>
       <label><input type="checkbox" id="verified"> بائع موثّق ✅</label><br>
       <button id="btnAddSeller">إضافة البائع</button>
     </div>
 
     <div class="card">
-      <h3>➕ إضافة منتج جديد</h3>
+      <h4>➕ إضافة منتج جديد</h4>
       <input id="prodName" placeholder="اسم المنتج"><br>
       <input id="prodPrice" placeholder="السعر"><br>
-      <input id="prodImage" placeholder="رابط صورة المنتج (URL)"><br>
+      <input id="prodImage" placeholder="رابط صورة المنتج"><br>
       <textarea id="prodDetails" placeholder="تفاصيل المنتج"></textarea><br>
       <button id="btnAddProduct">إضافة المنتج</button>
     </div>
 
     <div class="card">
-      <h3>📋 القوائم</h3>
+      <h4>📋 قائمة البائعين</h4>
       <div id="sellersTable"></div>
-      <hr>
+    </div>
+
+    <div class="card">
+      <h4>🛍️ قائمة المنتجات</h4>
       <div id="productsTable"></div>
     </div>
 
-    <button onclick="logout()">تسجيل خروج</button>
+    <button onclick="logout()">🚪 تسجيل خروج</button>
   </div>
 
   <script>
-    const api = '/api';
+    const API = '/api';
+    const loginScreen = document.getElementById('loginScreen');
+    const adminPanel = document.getElementById('adminPanel');
 
-    document.getElementById('btnLogin').onclick = async () => {
-      const username = document.getElementById('loginUser').value;
-      const password = document.getElementById('loginPass').value;
-      try {
-        const res = await fetch(api + '/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const j = await res.json();
-        if (j.success) {
-          localStorage.setItem('anubis_admin_token', j.token);
-          document.getElementById('loginScreen').classList.add('hidden');
-          document.getElementById('adminPanel').classList.remove('hidden');
-          loadTables();
-        } else {
-          alert(j.error || 'خطأ في الدخول');
-        }
-      } catch (e) { alert('خطأ في الاتصال بالسيرفر'); }
-    };
-
-    async function loadTables() {
-      // sellers
-      const sRes = await fetch(api + '/sellers');
-      const sellers = await sRes.json();
-      const sellersTable = document.getElementById('sellersTable');
-      sellersTable.innerHTML = '<h4>البائعين</h4>';
-      sellers.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'seller-row';
-        div.innerHTML = `<strong>${s.country}</strong> - ${s.name} ${s.verified ? '✅' : ''} | شكاوى: ${s.complaints || 0}
-          <button onclick="deleteSeller(${s.id})">حذف</button>`;
-        sellersTable.appendChild(div);
+    async function login() {
+      const username = document.getElementById('loginUser').value.trim();
+      const password = document.getElementById('loginPass').value.trim();
+      const res = await fetch(API + '/admin/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
       });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('admin_token', data.token);
+        loginScreen.classList.add('hidden');
+        adminPanel.classList.remove('hidden');
+        loadAll();
+      } else {
+        alert(data.error || 'فشل تسجيل الدخول');
+      }
+    }
 
-      // products
-      const pRes = await fetch(api + '/products');
-      const products = await pRes.json();
-      const productsTable = document.getElementById('productsTable');
-      productsTable.innerHTML = '<h4>المنتجات</h4>';
-      products.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'seller-row';
-        div.innerHTML = `<strong>${p.name}</strong> | ${p.price} <br>
-          ${p.details || ''} <br>
-          <img src="${p.image || ''}" style="max-width:80px; display:block; margin:6px 0;" />
-          <button onclick="deleteProduct(${p.id})">حذف</button>`;
-        productsTable.appendChild(div);
+    async function loadAll() {
+      await loadSellers();
+      await loadProducts();
+    }
+
+    async function loadSellers() {
+      const res = await fetch(API + '/sellers');
+      const sellers = await res.json();
+      const div = document.getElementById('sellersTable');
+      div.innerHTML = '';
+      sellers.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'seller-row';
+        el.innerHTML = `<strong>${s.country}</strong> - ${s.name} ${s.verified ? '✅' : ''} 
+        | 📛 شكاوى: ${s.complaints || 0}
+        <button onclick="deleteSeller(${s.id})">❌ حذف</button>`;
+        div.appendChild(el);
       });
     }
 
-    document.getElementById('btnAddSeller').onclick = async () => {
-      const payload = {
-        country: document.getElementById('countryName').value.trim(),
-        name: document.getElementById('sellerName').value.trim(),
-        desc: document.getElementById('sellerDesc').value.trim(),
-        telegram: document.getElementById('telegram').value.trim(),
-        whatsapp: document.getElementById('whatsapp').value.trim(),
-        verified: document.getElementById('verified').checked
-      };
-      const res = await fetch(api + '/seller', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-      const j = await res.json();
-      if (j.success) {
-        alert('تم إضافة البائع');
-        loadTables();
-      } else alert('خطأ');
-    };
+    async function loadProducts() {
+      const res = await fetch(API + '/products');
+      const prods = await res.json();
+      const div = document.getElementById('productsTable');
+      div.innerHTML = '';
+      prods.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'seller-row';
+        el.innerHTML = `<strong>${p.name}</strong> | ${p.price}<br>
+        <img src="${p.image || ''}" style="max-width:80px"><br>
+        ${p.details || ''}
+        <button onclick="deleteProduct(${p.id})">❌ حذف</button>`;
+        div.appendChild(el);
+      });
+    }
 
-    document.getElementById('btnAddProduct').onclick = async () => {
+    async function addSeller() {
       const payload = {
-        name: document.getElementById('prodName').value.trim(),
-        price: document.getElementById('prodPrice').value.trim(),
-        image: document.getElementById('prodImage').value.trim(),
-        details: document.getElementById('prodDetails').value.trim()
+        country: countryName.value,
+        name: sellerName.value,
+        desc: sellerDesc.value,
+        telegram: telegram.value,
+        whatsapp: whatsapp.value,
+        verified: verified.checked
       };
-      const res = await fetch(api + '/product', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-      const j = await res.json();
-      if (j.success) {
-        alert('تم إضافة المنتج');
-        loadTables();
-      } else alert('خطأ في الإضافة');
-    };
+      const res = await fetch(API + '/seller', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      const data = await res.json();
+      if (data.success) { alert('تمت الإضافة'); loadSellers(); }
+      else alert(data.error || 'خطأ');
+    }
+
+    async function addProduct() {
+      const payload = {
+        name: prodName.value,
+        price: prodPrice.value,
+        image: prodImage.value,
+        details: prodDetails.value
+      };
+      const res = await fetch(API + '/product', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      const data = await res.json();
+      if (data.success) { alert('تمت الإضافة'); loadProducts(); }
+      else alert(data.error || 'خطأ');
+    }
 
     async function deleteSeller(id) {
       if (!confirm('هل أنت متأكد؟')) return;
-      await fetch(api + '/seller/' + id, { method: 'DELETE' });
-      loadTables();
+      await fetch(API + '/seller/' + id, {method:'DELETE'});
+      loadSellers();
     }
     async function deleteProduct(id) {
       if (!confirm('هل أنت متأكد؟')) return;
-      await fetch(api + '/product/' + id, { method: 'DELETE' });
-      loadTables();
+      await fetch(API + '/product/' + id, {method:'DELETE'});
+      loadProducts();
     }
 
     function logout() {
-      localStorage.removeItem('anubis_admin_token');
-      document.getElementById('adminPanel').classList.ad
+      localStorage.removeItem('admin_token');
+      adminPanel.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    }
 
+    document.getElementById('btnLogin').onclick = login;
+    document.getElementById('btnAddSeller').onclick = addSeller;
+    document.getElementById('btnAddProduct').onclick = addProduct;
+  </script>
+</body>
+</html>

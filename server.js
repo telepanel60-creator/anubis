@@ -21,22 +21,20 @@ function runAsync(sql, params = []) {
     });
   });
 }
-
 function allAsync(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)));
   });
 }
-
 function getAsync(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
   });
 }
 
-// ======== API ========
+// ================== API ==================
 
-// Countries
+// عرض الدول
 app.get("/api/countries", async (req, res) => {
   try {
     const rows = await allAsync(
@@ -48,7 +46,7 @@ app.get("/api/countries", async (req, res) => {
   }
 });
 
-// Sellers by country
+// عرض البائعين حسب الدولة
 app.get("/api/sellers/:country", async (req, res) => {
   try {
     const rows = await allAsync("SELECT * FROM sellers WHERE country = ?", [
@@ -60,19 +58,22 @@ app.get("/api/sellers/:country", async (req, res) => {
   }
 });
 
-// All sellers
+// عرض كل البائعين (لوحة التحكم)
 app.get("/api/sellers", async (req, res) => {
   try {
-    res.json(await allAsync("SELECT * FROM sellers ORDER BY id DESC"));
+    const rows = await allAsync("SELECT * FROM sellers ORDER BY id DESC");
+    res.json(rows);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Add seller
+// إضافة بائع
 app.post("/api/seller", async (req, res) => {
   try {
     const { country, name, desc, telegram, whatsapp, verified } = req.body;
+    if (!country || !name)
+      return res.status(400).json({ error: "Missing fields" });
     const r = await runAsync(
       "INSERT INTO sellers (country, name, desc, telegram, whatsapp, verified) VALUES (?,?,?,?,?,?)",
       [country, name, desc, telegram, whatsapp, verified ? 1 : 0]
@@ -83,7 +84,7 @@ app.post("/api/seller", async (req, res) => {
   }
 });
 
-// Delete seller
+// حذف بائع
 app.delete("/api/seller/:id", async (req, res) => {
   try {
     await runAsync("DELETE FROM sellers WHERE id = ?", [req.params.id]);
@@ -93,7 +94,7 @@ app.delete("/api/seller/:id", async (req, res) => {
   }
 });
 
-// Complaints + Ratings
+// تقديم شكوى / تقييم
 app.post("/api/seller/:id/complaint", async (req, res) => {
   try {
     await runAsync("UPDATE sellers SET complaints = complaints + 1 WHERE id=?", [
@@ -104,12 +105,12 @@ app.post("/api/seller/:id/complaint", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
 app.post("/api/seller/:id/rate", async (req, res) => {
   try {
+    const rate = parseInt(req.body.rate) || 0;
     await runAsync(
       "UPDATE sellers SET rates = rates + 1, total = total + ? WHERE id=?",
-      [req.body.rate, req.params.id]
+      [rate, req.params.id]
     );
     res.json({ success: true });
   } catch (e) {
@@ -117,18 +118,20 @@ app.post("/api/seller/:id/rate", async (req, res) => {
   }
 });
 
-// Products
+// ===== المنتجات =====
 app.get("/api/products", async (req, res) => {
   try {
-    res.json(await allAsync("SELECT * FROM products ORDER BY created_at DESC"));
+    const rows = await allAsync("SELECT * FROM products ORDER BY created_at DESC");
+    res.json(rows);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
-
 app.post("/api/product", async (req, res) => {
   try {
     const { name, price, details, image } = req.body;
+    if (!name || !price)
+      return res.status(400).json({ error: "Missing product data" });
     const r = await runAsync(
       "INSERT INTO products (name, price, details, image) VALUES (?,?,?,?)",
       [name, price, details, image]
@@ -138,7 +141,6 @@ app.post("/api/product", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
 app.delete("/api/product/:id", async (req, res) => {
   try {
     await runAsync("DELETE FROM products WHERE id = ?", [req.params.id]);
@@ -148,27 +150,33 @@ app.delete("/api/product/:id", async (req, res) => {
   }
 });
 
-// Admin login
+// ===== تسجيل دخول الأدمن =====
 app.post("/api/admin/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    const row = await getAsync("SELECT * FROM admins WHERE username = ?", [
+    if (!username || !password)
+      return res.status(400).json({ error: "Missing credentials" });
+
+    const admin = await getAsync("SELECT * FROM admins WHERE username = ?", [
       username,
     ]);
-    if (!row) return res.status(400).json({ error: "Invalid credentials" });
-    const ok = await bcrypt.compare(password, row.password_hash);
-    if (!ok) return res.status(400).json({ error: "Invalid credentials" });
-    res.json({ success: true, token: "admintokendo-not-secure" });
+    if (!admin) return res.status(401).json({ error: "Invalid username" });
+
+    const ok = await bcrypt.compare(password, admin.password_hash);
+    if (!ok) return res.status(401).json({ error: "Wrong password" });
+
+    res.json({ success: true, token: "admintoken" });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.get("/", (req, res) =>
-  res.sendFile(path.join(__dirname, "index.html"))
-);
+// صفحة الموقع
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
-  console.log(`ANUBIS server running on http://localhost:${PORT}`)
+  console.log(`✅ ANUBIS server running on http://localhost:${PORT}`)
 );

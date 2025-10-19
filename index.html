@@ -28,6 +28,7 @@
     <h2>🎯 اختر خيارك</h2>
     <button onclick="window.open('https://t.me/anubis_4', '_blank')">📢 القناة الرسمية</button>
     <button onclick="nextStep('country')">💳 شراء مفتاح</button>
+    <button onclick="nextStep('products')">🛍️ منتجاتنا</button>
   </section>
 
   <section id="country" class="step">
@@ -42,6 +43,14 @@
     <button onclick="restart()">🔙 رجوع للبداية</button>
   </section>
 
+  <!-- New Products Section -->
+  <section id="products" class="step">
+    <h2>🛍️ منتجاتنا</h2>
+    <div id="productsGrid" class="grid"></div>
+    <button onclick="restart()">🔙 رجوع للبداية</button>
+  </section>
+
   <script src="main.js"></script>
 </body>
 </html>
+

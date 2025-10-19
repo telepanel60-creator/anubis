@@ -1,6 +1,6 @@
-const steps = ["welcome", "lang", "channel", "country", "sellers"];
+const steps = ["welcome", "lang", "channel", "country", "sellers", "products"];
 let selectedCountry = "";
-let currentLang = "ar"; // اللغة الافتراضية
+let currentLang = "ar";
 
 const translations = {
   ar: {
@@ -76,58 +76,44 @@ const translations = {
 
 function updateTexts() {
   const t = translations[currentLang];
-
-  // تحديث نصوص القسم الترحيبي
   const welcomeSection = document.getElementById("welcome");
   if (welcomeSection) {
     welcomeSection.querySelector(".logo").textContent = t.welcomeTitle;
     welcomeSection.querySelector(".subtitle").textContent = t.welcomeSubtitle;
     welcomeSection.querySelector("button").textContent = t.startButton;
   }
-
-  // تحديث نصوص اختيار اللغة
   const langSection = document.getElementById("lang");
   if (langSection) {
     langSection.querySelector("h2").textContent = t.chooseLangTitle;
     const langButtons = langSection.querySelectorAll(".lang-buttons button");
-    langButtons.forEach((btn, i) => {
-      btn.textContent = t.langButtons[i];
-    });
+    langButtons.forEach((btn, i) => { btn.textContent = t.langButtons[i]; });
   }
-
-  // تحديث نصوص قسم القناة والشراء
   const channelSection = document.getElementById("channel");
   if (channelSection) {
     channelSection.querySelector("h2").textContent = t.chooseOptionTitle;
     const buttons = channelSection.querySelectorAll("button");
-    if (buttons.length >= 2) {
+    if (buttons.length >= 3) {
       buttons[0].textContent = t.officialChannel;
       buttons[1].textContent = t.buyKey;
+      buttons[2].textContent = "🛍️ منتجاتنا";
     }
   }
-
-  // تحديث نصوص اختيار الدولة
   const countrySection = document.getElementById("country");
   if (countrySection) {
     countrySection.querySelector("h2").textContent = t.chooseCountryTitle;
     countrySection.querySelector("button").textContent = t.backButton;
   }
-
-  // تحديث نص زر الرجوع في قسم البائعين
   const sellersSection = document.getElementById("sellers");
-  if (sellersSection) {
-    sellersSection.querySelector("button").textContent = t.backButton;
-    // تحديث عنوان البائعين إذا تم اختيار دولة
-    if (selectedCountry) {
-      sellersSection.querySelector("#countryName").textContent = t.sellersTitlePrefix + selectedCountry;
-    }
-  }
+  if (sellersSection) sellersSection.querySelector("button").textContent = t.backButton;
+  const productsSection = document.getElementById("products");
+  if (productsSection) productsSection.querySelector("button").textContent = t.backButton;
 }
 
 function nextStep(id) {
   steps.forEach(s => document.getElementById(s)?.classList.remove("active"));
   document.getElementById(id)?.classList.add("active");
   if (id === "country") renderCountries();
+  if (id === "products") renderProducts();
 }
 
 function setLang(lang) {
@@ -140,209 +126,112 @@ function restart() {
   nextStep("welcome");
 }
 
-// 👁️ حركة عين أنوبيس
 const eye = document.getElementById("eye");
 if (eye) document.addEventListener("mousemove", e => {
   eye.style.left = e.pageX / 25 + "px";
   eye.style.top = e.pageY / 25 + "px";
 });
 
-// تحميل / حفظ بيانات
-function loadData() { return JSON.parse(localStorage.getItem("sellersData") || "{}"); }
-function saveData(data) { localStorage.setItem("sellersData", JSON.stringify(data)); }
+// ------------ Fetching data from API ------------
+const API = '/api';
 
-// عرض الدول
-function renderCountries() {
-  const data = loadData();
-  const div = document.getElementById("countries");
-  div.innerHTML = "";
-  Object.keys(data).forEach(c => {
-    const el = document.createElement("div");
-    el.className = "card";
-    el.textContent = c;
-    el.onclick = () => showSellers(c);
-    div.appendChild(el);
-  });
-}
-
-// عرض البائعين
-function showSellers(country) {
-  selectedCountry = country;
-  const data = loadData()[country] || [];
-  const t = translations[currentLang];
-  document.getElementById("countryName").textContent = t.sellersTitlePrefix + country;
-  const container = document.getElementById("sellerList");
-
-  container.innerHTML = data.length
-    ? data
-        .sort((a, b) => (b.verified === true) - (a.verified === true) || (b.rating || 0) - (a.rating || 0))
-        .map((s, i) => {
-          const avg = s.rates ? (s.total / s.rates).toFixed(1) : "0.0";
-          const canComplain = canComplainSeller(country, i);
-          return `
-      <div class='seller'>
-        <strong>${s.name}</strong> ${s.verified ? "✅" : ""}<br>
-        <small>${s.desc || ""}</small><br>
-        <div>
-          <span>⭐ ${avg}/5 (${s.rates || 0} ${t.ratingsText})</span><br>
-          ${renderStars(country, i, avg)}
-        </div>
-        <br>
-        ${s.telegram ? `<a href="${s.telegram}" target="_blank">📩 تيليجرام</a>` : ""}
-        ${s.whatsapp ? ` | <a href="${s.whatsapp}" target="_blank">📱 واتساب</a>` : ""}
-        <br>
-        <button onclick="complainSeller('${country}',${i})" ${!canComplain ? "disabled style='opacity:0.5;cursor:not-allowed;'" : ""}>
-          ${t.complainButton}
-        </button>
-      </div>
-    `;
-        })
-        .join("")
-    : `<p>${t.noSellers}</p>`;
-
-  nextStep("sellers");
-}
-
-// عرض النجوم + تحديد حالة التقييم
-function renderStars(country, index, avg) {
-  const rated = JSON.parse(localStorage.getItem("ratedSellers") || "[]");
-  const sellerId = `${country}_${index}`;
-  const alreadyRated = rated.includes(sellerId);
-  return [1, 2, 3, 4, 5]
-    .map(n =>
-      alreadyRated
-        ? `<span class='star ${n <= Math.round(avg) ? "active" : ""}'>★</span>`
-        : `<span class='star' onclick='rateSeller("${country}",${index},${n})'>★</span>`
-    )
-    .join("");
-}
-
-// تقييم البائع (مرة واحدة لكل جهاز)
-function rateSeller(country, index, rate) {
-  const rated = JSON.parse(localStorage.getItem("ratedSellers") || "[]");
-  const sellerId = `${country}_${index}`;
-  const t = translations[currentLang];
-
-  if (rated.includes(sellerId)) {
-    alert(t.ratedAlert);
-    return;
-  }
-
-  const data = loadData();
-  const seller = data[country][index];
-  seller.rates = (seller.rates || 0) + 1;
-  seller.total = (seller.total || 0) + rate;
-  seller.rating = seller.total / seller.rates;
-
-  rated.push(sellerId);
-  localStorage.setItem("ratedSellers", JSON.stringify(rated));
-  saveData(data);
-
-  alert(t.thanksRating);
-  showSellers(country);
-}
-
-// تحقق إن المستخدم يقدر يرسل شكوى ولا لأ
-function canComplainSeller(country, index) {
-  const complaints = JSON.parse(localStorage.getItem("complainedSellers") || "[]");
-  const sellerId = `${country}_${index}`;
-  return !complaints.includes(sellerId);
-}
-
-// تقديم شكوى (مرة واحدة فقط لكل بائع)
-function complainSeller(country, index) {
-  const complaints = JSON.parse(localStorage.getItem("complainedSellers") || "[]");
-  const sellerId = `${country}_${index}`;
-  const t = translations[currentLang];
-
-  if (complaints.includes(sellerId)) {
-    alert(t.complainedAlert);
-    return;
-  }
-
-  const data = loadData();
-  const seller = data[country][index];
-  seller.complaints = (seller.complaints || 0) + 1;
-  saveData(data);
-
-  complaints.push(sellerId);
-  localStorage.setItem("complainedSellers", JSON.stringify(complaints));
-
-  const randomAdmin = Math.random() < 0.5 ? "zkkabo" : "devilcheatyt";
-  window.open(`https://t.me/${randomAdmin}?text=بلاغ%20عن%20${seller.name}`);
-  showSellers(country);
-}
-
-/* ========== لوحة الإدارة ========== */
-function loginAdmin() {
-  const pass = document.getElementById("adminPass").value;
-  const t = translations[currentLang];
-  if (pass === "hjirjhgfkhbgh84hy74jhf5gh5fr8h848fh") {
-    document.getElementById("loginScreen").classList.add("hidden");
-    document.getElementById("adminPanel").classList.remove("hidden");
-    renderAdminTable();
-  } else alert(t.wrongPassAlert);
-}
-
-function addSeller() {
-  const c = countryName.value.trim();
-  const n = sellerName.value.trim();
-  const t = translations[currentLang];
-  if (!c || !n) return alert(t.addSellerAlert);
-  const data = loadData();
-  data[c] = data[c] || [];
-  data[c].push({
-    name: n,
-    desc: sellerDesc.value,
-    telegram: telegram.value,
-    whatsapp: whatsapp.value,
-    verified: verified.checked,
-    rating: 0,
-    rates: 0,
-    total: 0,
-    complaints: 0
-  });
-  saveData(data);
-  renderAdminTable();
-  alert(t.sellerAddedAlert);
-}
-
-function renderAdminTable() {
-  const data = loadData();
-  const table = document.getElementById("sellersTable");
-  table.innerHTML = "";
-  Object.entries(data).forEach(([country, sellers]) => {
-    sellers.forEach((s, i) => {
-      const avg = s.rates ? (s.total / s.rates).toFixed(1) : "0.0";
-      const row = document.createElement("div");
-      row.className = "seller-row";
-      row.innerHTML = `
-        <span><strong>${country}</strong> - ${s.name} ${s.verified ? "✅" : ""} 
-        | ⭐ ${avg}/5 (${s.rates || 0}) | 📛 شكاوى: ${s.complaints || 0}</span>
-        <button onclick="deleteSeller('${country}',${i})">❌</button>
-      `;
-      table.appendChild(row);
+async function renderCountries() {
+  try {
+    const res = await fetch(API + '/countries');
+    const countries = await res.json();
+    const div = document.getElementById("countries");
+    div.innerHTML = "";
+    if (!countries || countries.length === 0) {
+      div.innerHTML = '<p>لا توجد دول بعد</p>';
+      return;
+    }
+    countries.forEach(c => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.textContent = c;
+      el.onclick = () => showSellers(c);
+      div.appendChild(el);
     });
-  });
-}
-
-function deleteSeller(country, index) {
-  const data = loadData();
-  data[country].splice(index, 1);
-  if (!data[country].length) delete data[country];
-  saveData(data);
-  renderAdminTable();
-}
-
-function clearAll() {
-  const t = translations[currentLang];
-  if (confirm(t.confirmClearData)) {
-    localStorage.removeItem("sellersData");
-    renderAdminTable();
+  } catch (e) {
+    console.error(e);
+    document.getElementById("countries").innerHTML = '<p>خطأ في جلب البيانات</p>';
   }
 }
 
-// استدعاء تحديث النصوص عند تحميل الصفحة
-document.addEventListener("DOMContentLoaded", () => {
+async function showSellers(country) {
+  selectedCountry = country;
+  const t = translations[currentLang];
+  try {
+    const res = await fetch(API + '/sellers/' + encodeURIComponent(country));
+    const data = await res.json();
+    document.getElementById("countryName").textContent = t.sellersTitlePrefix + country;
+    const container = document.getElementById("sellerList");
+    container.innerHTML = data.length ? data.map((s, i) => {
+      const avg = s.rates ? (s.total / s.rates).toFixed(1) : "0.0";
+      return `
+        <div class='seller'>
+          <strong>${s.name}</strong> ${s.verified ? "✅" : ""}<br>
+          <small>${s.desc || ""}</small><br>
+          <div>
+            <span>⭐ ${avg}/5 (${s.rates || 0} ${t.ratingsText})</span><br>
+            <button onclick="complainSeller(${s.id})">${t.complainButton}</button>
+            ${s.telegram ? `<a href="${s.telegram}" target="_blank"> | 📩 تيليجرام</a>` : ''}
+            ${s.whatsapp ? `<a href="${s.whatsapp}" target="_blank"> | 📱 واتساب</a>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('') : `<p>${t.noSellers}</p>`;
+    nextStep("sellers");
+  } catch (e) {
+    console.error(e);
+    alert('خطأ في جلب البائعين');
+  }
+}
+
+async function complainSeller(sellerId) {
+  try {
+    await fetch(API + '/seller/' + sellerId + '/complaint', { method: 'POST' });
+    // open telegram to admins as before (simple)
+    const admins = ['zkkabo','devilcheatyt'];
+    const randomAdmin = admins[Math.floor(Math.random()*admins.length)];
+    window.open(`https://t.me/${randomAdmin}`, '_blank');
+    showSellers(selectedCountry);
+  } catch (e) {
+    alert('خطأ في الإرسال');
+  }
+}
+
+// ------------ Products rendering ------------
+async function renderProducts() {
+  try {
+    const res = await fetch(API + '/products');
+    const prods = await res.json();
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = '';
+    if (!prods || prods.length === 0) grid.innerHTML = '<p>لا توجد منتجات بعد</p>';
+    prods.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'card product-card';
+      el.innerHTML = `
+        <div class="prod-img-wrap"><img src="${p.image||''}" alt="${p.name}" onerror="this.style.display='none'"></div>
+        <h3>${p.name}</h3>
+        <p class="price">${p.price}</p>
+        <p class="details">${p.details || ''}</p>
+      `;
+      grid.appendChild(el);
+      // animation
+      el.style.opacity = 0;
+      el.style.transform = 'scale(0.98)';
+      setTimeout(()=> { el.style.transition = 'transform 260ms ease, opacity 260ms ease'; el.style.opacity = 1; el.style.transform = 'scale(1)'; }, 50);
+    });
+    nextStep('products');
+  } catch (e) {
+    console.error(e);
+    document.getElementById('productsGrid').innerHTML = '<p>خطأ في جلب المنتجات</p>';
+  }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
   updateTexts();
 });
